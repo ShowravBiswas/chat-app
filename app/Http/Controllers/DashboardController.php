@@ -13,7 +13,7 @@ class DashboardController extends Controller
     {
         $users = User::where('id', '!=', Auth::user()->id)
             ->select('id', 'name', 'email')
-            ->get();
+        ->get();
 
         return Inertia::render('Dashboard', [
             'users' => $users
