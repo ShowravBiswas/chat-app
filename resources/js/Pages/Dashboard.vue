@@ -63,7 +63,10 @@ onMounted(async () => {
     echoChannel = window.Echo.private(`chat.${currentUser.value.id}`)
         .listen('MessageSent', (e) => {
             console.log('📡 Real-time message received:', e.message);
-
+            console.log("Before", messages.value);
+            console.log("Send Message", e.message);
+            console.log("After", messages.value);
+            //messages.value.push(e.message);
             // Fix: Ensure type-safe comparison using Number()
             if (selectedUser.value && Number(e.message.sender_id) === Number(selectedUser.value.id)) {
                 messages.value.push(e.message);
