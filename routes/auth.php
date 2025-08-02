@@ -61,4 +61,5 @@ Route::middleware('auth')->group(function () {
     Route::get('/user', fn () => auth()->user());
     Route::get('/messages/{userId}', [ChatController::class, 'fetchMessages']);
     Route::post('/messages', [ChatController::class, 'sendMessage']);
+    Route::post('/typing', [ChatController::class, 'userType']);
 });

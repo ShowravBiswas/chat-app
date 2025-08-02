@@ -32,4 +32,15 @@ class ChatController extends Controller
 
         return $message;
     }
+
+    public function userType(Request $request){
+
+        broadcast(new \App\Events\UserTyping(
+        $request->sender_id,
+        $request->receiver_id,
+        $request->sender_name
+    ))->toOthers();
+
+    return response()->json(['status' => 'Typing event broadcasted']);
+    }
 }
