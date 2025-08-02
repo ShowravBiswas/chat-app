@@ -3,9 +3,10 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import { ref, onMounted, nextTick, onUnmounted } from 'vue';
 import axios from 'axios';
+import { formatTime } from '@/helpers/formatTime.js';
 
 const props = defineProps({
-    users: Array
+    users: Array,
 });
 
 const selectedUser = ref(null);
@@ -14,7 +15,6 @@ const newMessage = ref('');
 const messages = ref([]);
 const messageContainer = ref(null);
 
-// Auto-scroll chat to bottom
 const scrollToBottom = () => {
     nextTick(() => {
         if (messageContainer.value) {
@@ -23,7 +23,6 @@ const scrollToBottom = () => {
     });
 };
 
-// Select user and load chat history
 const selectUser = async (user) => {
     selectedUser.value = user;
     const res = await axios.get(`/messages/${user.id}`);
@@ -31,7 +30,6 @@ const selectUser = async (user) => {
     scrollToBottom();
 };
 
-// Send message API call
 const sendMessage = async () => {
     if (!newMessage.value.trim() || !selectedUser.value) return;
 
@@ -45,30 +43,18 @@ const sendMessage = async () => {
     scrollToBottom();
 };
 
-// Format timestamp for display
-const formatTime = (datetime) => {
-    const date = new Date(datetime);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
-
 let echoChannel = null;
 
-// Setup current user and listen for real-time messages
 onMounted(async () => {
     const auth = await axios.get('/user');
     currentUser.value = auth.data;
 
-    console.log('🔌 Subscribing to private channel: chat.' + currentUser.value.id);
-
     echoChannel = window.Echo.private(`chat.${currentUser.value.id}`)
         .listen('MessageSent', (e) => {
-            console.log('📡 Real-time message received:', e.message);
-            console.log("Before", messages.value);
-            console.log("Send Message", e.message);
-            console.log("After", messages.value);
-            //messages.value.push(e.message);
-            // Fix: Ensure type-safe comparison using Number()
-            if (selectedUser.value && Number(e.message.sender_id) === Number(selectedUser.value.id)) {
+            if (
+                selectedUser.value &&
+                Number(e.message.sender_id) === Number(selectedUser.value.id)
+            ) {
                 messages.value.push(e.message);
                 scrollToBottom();
             }
@@ -77,95 +63,94 @@ onMounted(async () => {
     scrollToBottom();
 });
 
-// Cleanup listener on unmount
 onUnmounted(() => {
     if (echoChannel && currentUser.value) {
-        console.log('🔌 Leaving channel: chat.' + currentUser.value.id);
         window.Echo.leave(`chat.${currentUser.value.id}`);
     }
 });
 </script>
 
 <template>
-    <Head title="Dashboard" />
+    <Head title="Chat" />
     <AuthenticatedLayout>
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="bg-white shadow-sm sm:rounded-lg">
-                    <div class="p-6 text-gray-900">
-                        <div class="flex border rounded-lg h-[600px] overflow-hidden">
-                            <!-- Left: User List -->
-                            <div class="w-1/3 border-r overflow-y-auto bg-white">
-                                <div class="p-4 font-semibold border-b bg-gray-100 sticky top-0 z-10">
-                                    Users
-                                </div>
-                                <ul>
-                                    <li
-                                        v-for="user in users"
-                                        :key="user.id"
-                                        @click="selectUser(user)"
-                                        class="cursor-pointer px-4 py-2 hover:bg-gray-100"
-                                        :class="{ 'bg-gray-100 font-bold': selectedUser?.id === user.id }"
-                                    >
-                                        {{ user.name }}
-                                    </li>
-                                </ul>
+        <div class="py-12 h-[calc(100vh-96px)]">
+            <div class="h-full mx-auto max-w-7xl sm:px-6 lg:px-8">
+                <div class="h-full bg-white shadow-sm sm:rounded-lg">
+                    <div class="flex h-full p-6 text-gray-900">
+                        <!-- Left: Users -->
+                        <div class="w-1/3 overflow-y-auto border-r">
+                            <div class="sticky top-0 p-4 font-semibold bg-gray-100 border-b">
+                                Users
                             </div>
+                            <ul>
+                                <li
+                                    v-for="user in users"
+                                    :key="user.id"
+                                    @click="selectUser(user)"
+                                    class="px-4 py-2 cursor-pointer hover:bg-gray-100"
+                                    :class="{ 'bg-gray-100 font-bold': selectedUser?.id === user.id }"
+                                >
+                                    {{ user.name }}
+                                </li>
+                            </ul>
+                        </div>
 
-                            <!-- Right: Chat Area -->
-                            <div class="w-2/3 flex flex-col bg-gray-50">
-                                <div v-if="selectedUser">
-                                    <div class="p-4 border-b font-semibold bg-gray-100 sticky top-0 z-10">
-                                        Chat with {{ selectedUser?.name }}
-                                    </div>
+                        <!-- Right: Chat -->
+                        <div class="flex flex-col w-2/3 h-full">
+                            <div v-if="selectedUser" class="flex flex-col h-full">
+                                <!-- Chat header -->
+                                <div class="sticky top-0 p-4 font-semibold bg-gray-100 border-b">
+                                    Chat with {{ selectedUser.name }}
+                                </div>
 
+                                <!-- Message container -->
+                                <div
+                                    ref="messageContainer"
+                                    class="flex-1 p-4 space-y-2 overflow-y-auto bg-gray-50"
+                                >
                                     <div
-                                        ref="messageContainer"
-                                        class="flex-1 overflow-y-auto p-4 space-y-2"
+                                        v-for="message in messages"
+                                        :key="message.id"
+                                        class="flex flex-col"
+                                        :class="Number(message.sender_id) === Number(currentUser.id)
+                                            ? 'items-end'
+                                            : 'items-start'"
                                     >
                                         <div
-                                            v-for="message in messages"
-                                            :key="message.id"
-                                            class="flex flex-col mb-2"
-                                            :class="Number(message.sender_id) === Number(currentUser.id) ? 'items-end' : 'items-start'"
+                                            class="px-3 py-2 rounded max-w-[70%]"
+                                            :class="Number(message.sender_id) === Number(currentUser.id)
+                                                ? 'bg-blue-500 text-white'
+                                                : 'bg-gray-300 text-gray-800'"
                                         >
-                                            <div
-                                                class="px-3 py-2 rounded max-w-[70%]"
-                                                :class="Number(message.sender_id) === Number(currentUser.id)
-                                                    ? 'bg-blue-500 text-white'
-                                                    : 'bg-gray-300 text-gray-800'"
-                                            >
-                                                {{ message.message }}
-                                            </div>
-                                            <span class="text-xs text-gray-500 mt-1">
-                                                {{ formatTime(message.created_at) }}
-                                            </span>
+                                            {{ message.message }}
                                         </div>
+                                        <span class="mt-1 text-xs text-gray-500">
+                                            {{ formatTime(message.created_at) }}
+                                        </span>
                                     </div>
+                                </div>
 
-                                    <div class="flex border-t p-3 bg-white">
-                                        <input
-                                            type="text"
-                                            v-model="newMessage"
-                                            @keyup.enter="sendMessage"
-                                            class="flex-1 border rounded-l px-4 py-2 focus:outline-none"
-                                            placeholder="Type your message..."
-                                        />
-                                        <button
-                                            @click="sendMessage"
-                                            class="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700"
-                                        >
-                                            Send
-                                        </button>
-                                    </div>
+                                <!-- Input -->
+                                <div class="flex p-3 bg-white border-t">
+                                    <input
+                                        v-model="newMessage"
+                                        @keyup.enter="sendMessage"
+                                        type="text"
+                                        class="flex-1 px-4 py-2 border rounded-l focus:outline-none"
+                                        placeholder="Type your message..."
+                                    />
+                                    <button
+                                        @click="sendMessage"
+                                        class="px-4 py-2 text-white bg-blue-600 rounded-r hover:bg-blue-700"
+                                    >
+                                        Send
+                                    </button>
                                 </div>
-                                <div
-                                    v-else
-                                    class="text-gray-500 h-full flex items-center justify-center text-xl"
-                                    style="min-height: 400px"
-                                >
-                                    Select a user to start chatting
-                                </div>
+                            </div>
+
+                            <!-- No user selected -->
+                            <div v-else class="flex items-center justify-center h-full text-gray-500">
+                                Select a user to start chatting
                             </div>
                         </div>
                     </div>
